@@ -29,7 +29,7 @@ jobs:
         uses: peaceiris/actions-gh-pages@v3
         with:
           PERSONAL_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          EXTERNAL_REPOSITORY: pseudoyu/pseudoyu.github.io
-          PUBLISH_BRANCH: master
+          EXTERNAL_REPOSITORY: hkmdxlftjf/hkmdxlftjf.github.io
+          PUBLISH_BRANCH: gh-pages
           PUBLISH_DIR: ./public
           commit_message: ${{ github.event.head_commit.message }}
