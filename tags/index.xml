@@ -2,21 +2,11 @@
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
     <title>Tags on Blowfish</title>
-    <link>https://example.org/tags/</link>
+    <link>https://hkmdxlftjf.github.io/tags/</link>
     <description>Recent content in Tags on Blowfish</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en</language>
-    <copyright>© 2024 Your name here</copyright>
-    <lastBuildDate>Mon, 14 Aug 2023 00:00:00 +0000</lastBuildDate><atom:link href="https://example.org/tags/index.xml" rel="self" type="application/rss+xml" />
-    <item>
-      <title>Space</title>
-      <link>https://example.org/tags/space/</link>
-      <pubDate>Mon, 14 Aug 2023 00:00:00 +0000</pubDate>
-      
-      <guid>https://example.org/tags/space/</guid>
-      <description></description>
-      
-    </item>
-    
+    <copyright>© 2024 Sure</copyright>
+    <atom:link href="https://hkmdxlftjf.github.io/tags/index.xml" rel="self" type="application/rss+xml" />
   </channel>
 </rss>
