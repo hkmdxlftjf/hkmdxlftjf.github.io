@@ -101,9 +101,9 @@ theme: redefine
 # Deployment
 ## Docs: https://hexo.io/docs/one-command-deployment
 deploy:
-  type: 'git'
-  repo: "https://github.com/hkmdxlftjf/hkmdxlftjf.github.io.git"
-  branch: hexo
+  type: git
+  repo: "git@github.com:hkmdxlftjf/hkmdxlftjf.github.io.git"
+  branch: gh-pages
 
 
 
