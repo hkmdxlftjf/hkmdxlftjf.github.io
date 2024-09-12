@@ -25,10 +25,12 @@
 <meta property="og:site_name" content="Hexo">
 <meta property="og:description" content="存储格式prometheus 写入示例如下 12http_request_total&#123;status&#x3D;&quot;200&quot;,method&#x3D;&quot;GET&quot;&#125; 1724740700000 12345http_request_total&#123;status&#x3D;&quot;200&quot;,method&#x3D;&quot;GET&quot;&#125; 17247">
 <meta property="og:locale" content="en_US">
+<meta property="og:image" content="http://example.com/images/vm-index-data.png">
 <meta property="article:published_time" content="2024-08-27T06:36:53.000Z">
-<meta property="article:modified_time" content="2024-09-06T00:13:59.218Z">
+<meta property="article:modified_time" content="2024-09-12T22:03:26.357Z">
 <meta property="article:author" content="John Doe">
 <meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://example.com/images/vm-index-data.png">
     
     
     <!--- Icon Part-->
@@ -414,8 +416,8 @@
     
         <span class="article-date article-meta-item">
             <i class="fa-regular fa-wrench"></i>&nbsp;
-            <span class="desktop">2024-09-06 08:13:59</span>
-            <span class="mobile">2024-09-06 08:13:59</span>
+            <span class="desktop">2024-09-13 06:03:26</span>
+            <span class="mobile">2024-09-13 06:03:26</span>
             <span class="hover-info">Updated</span>
         </span>
     
@@ -445,6 +447,12 @@
             <h2 id="存储格式"><a href="#存储格式" class="headerlink" title="存储格式"></a>存储格式</h2><p>prometheus 写入示例如下</p>
 <div class="highlight-container" data-rel="Plaintext"><figure class="iseeu highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">http_request_total&#123;status=&quot;200&quot;,method=&quot;GET&quot;&#125; 1724740700000 12345</span><br><span class="line">http_request_total&#123;status=&quot;200&quot;,method=&quot;GET&quot;&#125; 1724740800000 23456</span><br></pre></td></tr></table></figure></div>
 <p>当 vm 接收到请求时，会对请求中的时序数据做转换处理，根据 metric 和label.Name 生成 TSID，然后将<code>metric(指标名称__name__) + labels + TSID</code> 作为index，<code>TSID + timestamp + value</code> 作为data, index 和 data 分别进行存储和索引。</p>
+<p><img  
+                     lazyload
+                     src="/images/loading.svg"
+                     data-src="/images/vm-index-data.png"
+                      alt="数据存储"
+                ></p>
 <h3 id="TSID"><a href="#TSID" class="headerlink" title="TSID"></a>TSID</h3><p>vm 中的 metricName 结构如下：</p>
 <div class="highlight-container" data-rel="Golang"><figure class="iseeu highlight golang"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">type</span> MetricName <span class="keyword">struct</span> &#123;</span><br><span class="line">    AccountID <span class="type">uint32</span></span><br><span class="line">    ProjectID <span class="type">uint32</span></span><br><span class="line">    MetricGroup []<span class="type">byte</span> # 指标名称 __name__</span><br><span class="line">    Tags []Tag</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">type</span> Tag <span class="keyword">struct</span> &#123;</span><br><span class="line">    Key   []<span class="type">byte</span></span><br><span class="line">    Value []<span class="type">byte</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure></div>
 <p>TSID 结构如下，除 MetricID 外其他字段都是可选的。</p>
@@ -458,9 +466,9 @@
 <li>tag -&gt; metricID</li>
 </ul>
 <p>在查询时，先根据给定的 tag 条件查找每个 tag 的 metricID 列表，然后计算所有 tag 的 metircID 的交集，再去索引文件中检索出 TSID，根据 TSID 到数据文件中查询数据，返回结果前根据 TSID 中的 metricID 查询原始 metricName。<br>tag -&gt; metricID -&gt; TSID -&gt; data -&gt; metricID -&gt; metricName</p>
-<h3 id="rawRow"><a href="#rawRow" class="headerlink" title="rawRow"></a>rawRow</h3><div class="highlight-container" data-rel="Golang"><figure class="iseeu highlight golang"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">type</span> rawRow <span class="keyword">struct</span> &#123;</span><br><span class="line">    TSID          TSID</span><br><span class="line">    Timestamp     <span class="type">int64</span> # 时间戳</span><br><span class="line">    Value         <span class="type">int64</span> # 当前 timestamp 的时间序列值</span><br><span class="line">    PrecisionBits <span class="type">uint8</span> # 每个值要存储的精度位数，可能值为 [<span class="number">1</span>,<span class="number">64</span>]，低精度可能会减少磁盘占用，但</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">type</span> MetricRow <span class="keyword">struct</span> &#123;</span><br><span class="line">    MetricNameRaw []<span class="type">byte</span></span><br><span class="line">    Timestamp     <span class="type">int64</span></span><br><span class="line">    Value         <span class="type">float64</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></div>
+<h3 id="rawRow"><a href="#rawRow" class="headerlink" title="rawRow"></a>rawRow</h3><div class="highlight-container" data-rel="Golang"><figure class="iseeu highlight golang"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">type</span> rawRow <span class="keyword">struct</span> &#123;</span><br><span class="line">    TSID          TSID</span><br><span class="line">    Timestamp     <span class="type">int64</span> # 时间戳</span><br><span class="line">    Value         <span class="type">int64</span> # 当前 timestamp 的时间序列值</span><br><span class="line">    PrecisionBits <span class="type">uint8</span> # 每个值要存储的精度位数，可能值为 [<span class="number">1</span>,<span class="number">64</span>]，低精度可能会减少磁盘占用，但</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">type</span> MetricRow <span class="keyword">struct</span> &#123;</span><br><span class="line">    MetricNameRaw []<span class="type">byte</span></span><br><span class="line">    Timestamp     <span class="type">int64</span></span><br><span class="line">    Value :wq;;        <span class="type">float64</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></div>
 
-<h3 id="Addrows-方法"><a href="#Addrows-方法" class="headerlink" title="Addrows 方法"></a>Addrows 方法</h3><p>查询</p>
+<h3 id="Addrows-方法"><a href="#Addrows-方法" class="headerlink" title="Addrows 方法"></a>Addrows 方法</h3><div class="highlight-container" data-rel="Golang"><figure class="iseeu highlight golang"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(s *Storage)</span></span> AddRows(mrs []MetricRow, precisionBits <span class="type">uint8</span>) &#123;</span><br><span class="line">	<span class="keyword">if</span> <span class="built_in">len</span>(mrs) == <span class="number">0</span> &#123;</span><br><span class="line">		<span class="keyword">return</span></span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="comment">// Add rows to the storage in blocks with limited size in order to reduce memory usage.</span></span><br><span class="line">	ic := getMetricRowsInsertCtx()</span><br><span class="line">	maxBlockLen := <span class="built_in">len</span>(ic.rrs)</span><br><span class="line">	<span class="keyword">for</span> <span class="built_in">len</span>(mrs) &gt; <span class="number">0</span> &#123;</span><br><span class="line">		mrsBlock := mrs</span><br><span class="line">		<span class="keyword">if</span> <span class="built_in">len</span>(mrs) &gt; maxBlockLen &#123;</span><br><span class="line">			mrsBlock = mrs[:maxBlockLen]</span><br><span class="line">			mrs = mrs[maxBlockLen:]</span><br><span class="line">		&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">			mrs = <span class="literal">nil</span></span><br><span class="line">		&#125;</span><br><span class="line">		s.add(ic.rrs, ic.tmpMrs, mrsBlock, precisionBits)</span><br><span class="line">		s.rowsAddedTotal.Add(<span class="type">uint64</span>(<span class="built_in">len</span>(mrsBlock)))</span><br><span class="line">	&#125;</span><br><span class="line">	putMetricRowsInsertCtx(ic)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></div>
 
         </div>
 
@@ -475,7 +483,7 @@
         
             <li>
                 <strong>Updated at
-                    :</strong> 2024-09-06 08:13:59
+                    :</strong> 2024-09-13 06:03:26
             </li>
         
         <li>
